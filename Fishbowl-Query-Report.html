@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fishbowl query report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef1f4;
+      --ink: #1c2430;
+      --muted: #5c6b7a;
+      --line: #d5dde6;
+      --card: #ffffff;
+      --navy: #17324d;
+      --accent: #0f6e56;
+      --accent-ink: #ffffff;
+      --warn-bg: #fff6e8;
+      --warn-ink: #6a4b16;
+      --warn-line: #e4c48a;
+      --bad-bg: #fdecea;
+      --bad-ink: #8d2a24;
+      --ok-bg: #e7f6ef;
+      --ok-ink: #0f6e56;
+      --shadow: 0 1px 2px rgba(23, 50, 77, 0.06), 0 8px 24px rgba(23, 50, 77, 0.05);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 15px/1.45 "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: 0; }
+    header p { margin: 4px 0 0; color: #c5d4e2; font-size: 13px; }
+    #connection-status {
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      padding: 18px;
+      align-items: start;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .side, .workspace { padding: 14px; }
+    .side h2, .editor-head h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    #saved-queries { display: flex; flex-direction: column; gap: 8px; }
+    .saved-query, .secondary, #run-button, #run-all-button, #mfa-button, #retry-button, #download-csv {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .saved-query small { display: block; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .saved-query.active, #run-button, #run-all-button, #mfa-button, #retry-button {
+      background: var(--accent);
+      color: var(--accent-ink);
+      border-color: var(--accent);
+    }
+    .saved-query.active small { color: rgba(255, 255, 255, 0.82); }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    #run-all-button, #retry-button, #mfa-button { width: 100%; margin-top: 10px; text-align: center; }
+    .banner, .result-error, .result-note {
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .banner { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); }
+    .banner h2 { margin: 0 0 6px; font-size: 16px; text-transform: none; letter-spacing: 0; color: inherit; }
+    .banner ol { margin: 8px 0 0; padding-left: 18px; }
+    .result-error { background: var(--bad-bg); color: var(--bad-ink); }
+    .result-note { background: var(--ok-bg); color: var(--ok-ink); }
+    .hidden { display: none; }
+    .editor-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .actions { display: flex; gap: 8px; }
+    #sql-input {
+      width: 100%;
+      min-height: 140px;
+      margin: 8px 0 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      background: #fbfcfd;
+    }
+    #mfa-panel { margin-top: 12px; }
+    #mfa-input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); }
+    .meta { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+    .table-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--line); border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+    th { position: sticky; top: 0; background: #f7f9fb; }
+    tr:nth-child(even) td { background: #fbfcfd; }
+    .block { margin-top: 16px; }
+    .block h3 { margin: 0 0 6px; font-size: 16px; }
+    pre.sql {
+      margin: 0 0 8px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    footer { padding: 0 18px 18px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+    @media print {
+      header, .side, .editor-head, #sql-input, footer, .banner button { display: none; }
+      body, .card { background: white; box-shadow: none; }
+      main { display: block; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Fishbowl query report</h1>
+      <p>Run a saved query, or type a SELECT statement.</p>
+    </div>
+    <div id="connection-status" role="status">Checking Fishbowl…</div>
+  </header>
+  <main>
+    <section class="card side">
+      <h2>Saved queries</h2>
+      <div id="saved-queries"></div>
+      <button id="run-all-button" type="button">Run all saved queries</button>
+    </section>
+    <section class="card workspace">
+      <div id="notice" class="result-error hidden"></div>
+      <div id="approval-banner" class="banner hidden">
+        <h2>Approval required</h2>
+        <p id="approval-message"></p>
+        <ol>
+          <li>Open the Fishbowl Server application.</li>
+          <li>Open the Integrations tab.</li>
+          <li>Select <strong id="app-name"></strong> and click Approve.</li>
+          <li>Return here and click Check again.</li>
+        </ol>
+        <button id="retry-button" type="button">Check again</button>
+      </div>
+      <div id="mfa-panel" class="banner hidden">
+        <h2>Authenticator code</h2>
+        <p>Fishbowl asked for the current MFA code for this user.</p>
+        <input id="mfa-input" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+        <button id="mfa-button" type="button">Continue</button>
+      </div>
+      <div class="editor-head">
+        <h2>Query</h2>
+        <div class="actions">
+          <button id="download-csv" class="secondary hidden" type="button">Download CSV</button>
+          <button id="run-button" type="button">Run query</button>
+        </div>
+      </div>
+      <label class="meta" for="sql-input">Ctrl+Enter runs the statement in this box.</label>
+      <textarea id="sql-input" spellcheck="false" placeholder="SELECT id, name FROM company LIMIT 50"></textarea>
+      <div id="results" aria-live="polite"></div>
+    </section>
+  </main>
+  <footer id="helper-hint">Helper address: http://127.0.0.1:8787/</footer>
+  <script type="application/json" id="saved-queries-data">[
+  {
+    "name": "Countries",
+    "sql": "SELECT id, abbreviation, name FROM countryconst"
+  },
+  {
+    "name": "Units of measure",
+    "sql": "SELECT id, name, code, activeFlag FROM uom"
+  },
+  {
+    "name": "Users",
+    "sql": "SELECT id, userName, firstName, lastName, activeFlag FROM sysuser"
+  },
+  {
+    "name": "Companies",
+    "sql": "SELECT id, name, defaultFlag FROM company"
+  },
+  {
+    "name": "Carriers",
+    "sql": "SELECT id, name, activeFlag FROM carrier"
+  }
+]</script>
+  <script>
+    const helperPort = new URLSearchParams(location.search).get("port") || "8787";
+    const apiBase = location.protocol === "file:" ? `http://127.0.0.1:${helperPort}` : "";
+    const savedSeed = JSON.parse(document.getElementById("saved-queries-data").textContent);
+    const statusEl = document.getElementById("connection-status");
+    const banner = document.getElementById("approval-banner");
+    const mfaPanel = document.getElementById("mfa-panel");
+    const resultsEl = document.getElementById("results");
+    const sqlInput = document.getElementById("sql-input");
+    const savedEl = document.getElementById("saved-queries");
+    const downloadBtn = document.getElementById("download-csv");
+    let saved = savedSeed;
+    let lastTable = null;
+    let mfaCode = "";
+
+    function text(value) {
+      return value == null ? "" : String(value);
+    }
+
+    function el(tag, className, content) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content != null) node.textContent = content;
+      return node;
+    }
+
+    function renderSaved() {
+      savedEl.replaceChildren();
+      saved.forEach((query) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "saved-query";
+        button.append(el("span", "", query.name), el("small", "", query.sql));
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".saved-query").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          sqlInput.value = query.sql;
+          runQueries([{ name: query.name, sql: query.sql }]);
+        });
+        savedEl.append(button);
+      });
+    }
+
+    async function api(path, options) {
+      const response = await fetch(apiBase + path, options);
+      const data = await response.json().catch(() => ({}));
+      return data;
+    }
+
+    function setStatus(label) {
+      statusEl.textContent = label;
+    }
+
+    function showConnection(state) {
+      const notice = document.getElementById("notice");
+      banner.classList.toggle("hidden", state.code !== "approval");
+      mfaPanel.classList.toggle("hidden", state.code !== "mfa");
+      const showNotice = !state.ok && state.code !== "approval" && state.code !== "mfa";
+      notice.classList.toggle("hidden", !showNotice);
+      notice.textContent = showNotice ? (state.message || "Fishbowl could not be reached.") : "";
+      if (state.code === "approval") {
+        document.getElementById("approval-message").textContent = state.message || "Fishbowl is waiting for an administrator to approve this integrated application.";
+        document.getElementById("app-name").textContent = state.appName || "this application";
+        setStatus("Approval required");
+        return;
+      }
+      if (state.code === "mfa") {
+        setStatus("MFA code required");
+        return;
+      }
+      if (state.ok) {
+        const who = state.user ? `Signed in as ${state.user}` : "Signed in";
+        const version = state.serverVersion ? ` · ${state.serverVersion}` : "";
+        setStatus(who + version);
+        return;
+      }
+      if (state.code === "offline") {
+        setStatus("Helper is not running");
+        return;
+      }
+      setStatus(state.code === "auth" ? "Sign-in failed" : "Not connected");
+    }
+
+    async function refreshStatus() {
+      try {
+        const state = await api("/api/status");
+        if (mfaCode && state.code === "mfa") {
+          const retry = await api("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mfaCode }),
+          });
+          showConnection(retry);
+          return retry;
+        }
+        showConnection(state);
+        return state;
+      } catch {
+        const offline = {
+          ok: false,
+          code: "offline",
+          message: "The local helper is not running. Double-click start-report.bat, or run ./start-report.sh, and then reload this page.",
+        };
+        showConnection(offline);
+        return offline;
+      }
+    }
+
+    function tableNode(result) {
+      const wrap = el("div", "table-wrap");
+      const table = document.createElement("table");
+      const head = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      result.columns.forEach((column) => headRow.append(el("th", "", column)));
+      head.append(headRow);
+      const body = document.createElement("tbody");
+      result.records.forEach((record) => {
+        const row = document.createElement("tr");
+        result.columns.forEach((column) => row.append(el("td", "", text(record[column]))));
+        body.append(row);
+      });
+      table.append(head, body);
+      wrap.append(table);
+      return wrap;
+    }
+
+    function renderResults(blocks) {
+      resultsEl.replaceChildren();
+      const tables = [];
+      blocks.forEach((block) => {
+        const section = el("section", "block");
+        if (block.name) section.append(el("h3", "", block.name));
+        if (block.sql) section.append(el("pre", "sql", block.sql));
+        if (!block.ok) {
+          section.append(el("div", "result-error", block.message || "The query failed."));
+        } else if (!block.records.length) {
+          section.append(el("p", "result-note", "The query succeeded and returned no rows."));
+        } else {
+          const shown = block.truncated ? `Showing ${block.records.length} of ${block.rowCount} rows` : `${block.rowCount} rows`;
+          const timing = block.elapsedMs != null ? ` · ${block.elapsedMs} ms` : "";
+          section.append(el("p", "meta", shown + timing));
+          section.append(tableNode(block));
+          tables.push(block);
+        }
+        resultsEl.append(section);
+      });
+      lastTable = tables.length === 1 ? tables[0] : null;
+      downloadBtn.classList.toggle("hidden", !lastTable);
+    }
+
+    async function runQueries(list) {
+      const buttons = document.querySelectorAll("button");
+      buttons.forEach((button) => { button.disabled = true; });
+      setStatus("Running…");
+      try {
+        const state = await refreshStatus();
+        if (!state.ok) {
+          renderResults(list.map((item) => ({ ...item, ok: false, message: state.message })));
+          return;
+        }
+        const blocks = [];
+        for (const item of list) {
+          const result = await api("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sql: item.sql, mfaCode }),
+          });
+          blocks.push({ ...item, ...result });
+          if (!result.ok && (result.code === "approval" || result.code === "mfa" || result.code === "auth")) {
+            showConnection(result);
+            break;
+          }
+        }
+        renderResults(blocks);
+        if (state.ok) showConnection(state);
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    }
+
+    function csvEscape(value) {
+      const raw = text(value);
+      if (/[",\n]/.test(raw)) return `"${raw.replace(/"/g, '""')}"`;
+      return raw;
+    }
+
+    document.getElementById("run-button").addEventListener("click", () => {
+      document.querySelectorAll(".saved-query").forEach((item) => item.classList.remove("active"));
+      runQueries([{ name: "Custom query", sql: sqlInput.value }]);
+    });
+    document.getElementById("run-all-button").addEventListener("click", () => runQueries(saved));
+    document.getElementById("retry-button").addEventListener("click", () => refreshStatus());
+    document.getElementById("mfa-button").addEventListener("click", async () => {
+      mfaCode = document.getElementById("mfa-input").value.trim();
+      await refreshStatus();
+    });
+    sqlInput.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("run-button").click();
+      }
+    });
+    downloadBtn.addEventListener("click", () => {
+      if (!lastTable) return;
+      const lines = [lastTable.columns.map(csvEscape).join(",")];
+      lastTable.records.forEach((record) => {
+        lines.push(lastTable.columns.map((column) => csvEscape(record[column])).join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "fishbowl-query.csv";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    renderSaved();
+    sqlInput.value = saved[0] ? saved[0].sql : "";
+    document.getElementById("helper-hint").textContent = `Helper address: http://127.0.0.1:${helperPort}/`;
+    refreshStatus().then(async (state) => {
+      if (state.code !== "offline") return;
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const again = await refreshStatus();
+        if (again.code !== "offline") break;
+      }
+    });
+    api("/api/saved").then((remote) => {
+      if (Array.isArray(remote) && remote.length) {
+        saved = remote;
+        renderSaved();
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

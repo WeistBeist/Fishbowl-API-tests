@@ -1,0 +1,12 @@
+{
+  "name": "fishbowl-query-report",
+  "private": true,
+  "description": "Local Fishbowl query report. Credentials stay in environment variables.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
