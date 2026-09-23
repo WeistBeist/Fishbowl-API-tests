@@ -16,7 +16,7 @@ Mac or Linux:
 
 Then use the page at [http://127.0.0.1:8787/](http://127.0.0.1:8787/). `Fishbowl-Query-Report.html` is the same page and can be opened directly while the helper is running.
 
-The first login registers the integrated application and waits until it is approved in Fishbowl Server, on the Integrations tab. The report shows that application name and a Check again button.
+The first login registers the integrated application. Approve it once in the Fishbowl Client under Setup, Settings, Integrated Apps. That screen requires the Edit Integrated Apps right. The report shows the application name and a Check again button.
 
 ## PowerShell
 
