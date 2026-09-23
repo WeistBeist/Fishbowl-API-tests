@@ -2,7 +2,8 @@
 # Settings come from parameters or environment variables:
 # ServerHost, ServerPort, UserName, UserPassword, AppId, AppName, AppDesc.
 # The first login for a new integrated application returns status 1110 or 1112
-# until that application is approved in Fishbowl Server -> Integrations.
+# until that application is approved in the Fishbowl Client:
+# Setup -> Settings -> Integrated Apps.
 
 param(
     [string]$ServerHost = $env:ServerHost,
@@ -129,7 +130,8 @@ try {
         Write-Host ""
         Write-Host "[APPROVAL REQUIRED]" -ForegroundColor Yellow
         Write-Host "This client application ('$AppName') has not been approved yet." -ForegroundColor Yellow
-        Write-Host "Open Fishbowl Server -> Integrations, find '$AppName', and click Approve." -ForegroundColor Yellow
+        Write-Host "In the Fishbowl Client, open Setup -> Settings -> Integrated Apps, find '$AppName', and click Approve." -ForegroundColor Yellow
+        Write-Host "The status should become Accepted. This requires the Edit Integrated Apps right." -ForegroundColor Yellow
         return
     }
 
