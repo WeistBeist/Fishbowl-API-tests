@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Countries",
+    "sql": "SELECT id, abbreviation, name FROM countryconst"
+  },
+  {
+    "name": "Units of measure",
+    "sql": "SELECT id, name, code, activeFlag FROM uom"
+  },
+  {
+    "name": "Users",
+    "sql": "SELECT id, userName, firstName, lastName, activeFlag FROM sysuser"
+  },
+  {
+    "name": "Companies",
+    "sql": "SELECT id, name, defaultFlag FROM company"
+  },
+  {
+    "name": "Carriers",
+    "sql": "SELECT id, name, activeFlag FROM carrier"
+  }
+]
